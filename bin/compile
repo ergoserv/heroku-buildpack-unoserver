@@ -1,0 +1,48 @@
+#!/bin/sh
+
+set -ex
+
+BUILD_DIR=$1
+CACHE_DIR=$2
+
+VENDOR_DIR="$BUILD_DIR/vendor"
+LIBRE_OFFICE_DIR="$VENDOR_DIR/libreoffice"
+LIBRE_OFFICE_VERSION=$(ls "$LIBRE_OFFICE_DIR/opt")
+LIBRE_OFFICE_PROGRAM_DIR="$LIBRE_OFFICE_DIR/opt/$LIBRE_OFFICE_VERSION/program"
+
+cp "$LIBRE_OFFICE_PROGRAM_DIR/soffice" "$LIBRE_OFFICE_PROGRAM_DIR/libreoffice"
+
+PYTHON="$LIBRE_OFFICE_PROGRAM_DIR/python"
+
+if ! [ -e "$CACHE_DIR/get-pip.py" ]; then
+  echo "-----> downloading get-pip.py"
+  curl -sSL https://bootstrap.pypa.io/get-pip.py -o "$CACHE_DIR/get-pip.py"
+else
+  echo "file already exists $CACHE_DIR/get-pip.py"
+fi
+
+"$PYTHON" "$CACHE_DIR/get-pip.py"
+
+PYTHON_CORE_VERSION=$(ls "$LIBRE_OFFICE_PROGRAM_DIR" | grep python-core)
+PYTHON_CORE_DIR="$LIBRE_OFFICE_PROGRAM_DIR/$PYTHON_CORE_VERSION"
+PIP="$PYTHON_CORE_DIR/bin/pip"
+
+"$PYTHON" "$PIP" install unoserver --no-warn-script-location
+
+UNO_DIR="$HOME/vendor/libreoffice/opt/$LIBRE_OFFICE_VERSION/program/$PYTHON_CORE_VERSION/bin"
+
+PROFILE_PATH="$BUILD_DIR/.profile.d/unoserver.sh"
+mkdir -p $(dirname "$PROFILE_PATH")
+
+{
+  echo "export UNOSERVER_PATH=$UNO_DIR/unoserver"
+  echo "export UNOCONVERT_PATH=$UNO_DIR/unoconvert"
+  echo "export UNOCOMPARE_PATH=$UNO_DIR/unocompare"
+} >> "$PROFILE_PATH"
+
+echo "python \$UNOSERVER_PATH \"\$@\"" >> "$BUILD_DIR/bin/unoserver"
+chmod +x "$BUILD_DIR/bin/unoserver"
+echo "python \$UNOCONVERT_PATH \"\$@\"" >> "$BUILD_DIR/bin/unoconvert"
+chmod +x "$BUILD_DIR/bin/unoconvert"
+echo "python \$UNOCOMPARE_PATH \"\$@\"" >> "$BUILD_DIR/bin/unocompare"
+chmod +x "$BUILD_DIR/bin/unocompare"
